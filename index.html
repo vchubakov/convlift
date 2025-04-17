@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programmatic Advertising Conversion Lift Calculator</title>
+    <style>
+        /* Basic Reset & Defaults */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 30px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }
+        h1, h2, h3 { margin-bottom: 15px; color: #1a237e; }
+        h1 { font-size: 1.8em; } h2 { font-size: 1.4em; margin-top: 30px; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px; } h3 { font-size: 1.2em; margin-top: 20px; color: #3949ab; }
+        .instructions { background-color: #e3f2fd; border-left: 5px solid #2196f3; padding: 15px; margin-bottom: 25px; border-radius: 4px; }
+        .instructions p, .instructions ul, .instructions ol { margin-bottom: 10px; } .instructions ul, .instructions ol { margin-left: 20px; }
+        .instructions code { background-color: #eee; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+        .warning { color: #c62828; font-weight: bold; } .recommendation { color: #2e7d32; font-weight: bold; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #555; }
+        textarea, input[type="number"] { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem; }
+        textarea#dataInput { height: 200px; font-family: monospace; white-space: pre; overflow-wrap: normal; overflow-x: scroll; }
+        button#calculateBtn { background-color: #4CAF50; color: white; padding: 12px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 1.1rem; transition: background-color 0.3s ease; }
+        button#calculateBtn:hover { background-color: #45a049; }
+        #errorMessage { display: none; background-color: #ffebee; color: #c62828; border: 1px solid #ef9a9a; padding: 15px; margin-top: 20px; margin-bottom: 20px; border-radius: 4px; }
+        #resultsArea { display: none; margin-top: 30px; }
+        #insightsArea, #notesSection { background-color: #e8f5e9; border: 1px solid #a5d6a7; padding: 20px; margin-bottom: 25px; border-radius: 4px; }
+        #insightsArea h3, #notesSection h3 { margin-top: 0; color: #2e7d32; }
+        #insightsArea ul, #notesSection ul { list-style: disc; margin-left: 20px; } #insightsArea li, #notesSection li { margin-bottom: 8px; }
+        .table-wrapper { overflow-x: auto; margin-bottom: 25px; border: 1px solid #ddd; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 10px 12px; text-align: left; vertical-align: top; white-space: nowrap; }
+        th { background-color: #e9ecef; font-weight: bold; position: sticky; top: 0; z-index: 1; }
+        tbody tr:nth-child(even) { background-color: #f9f9f9; } tbody tr:hover { background-color: #f1f1f1; }
+        .numeric-column { text-align: right; } th.numeric-column { text-align: right; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Programmatic Advertising Conversion Lift Calculator</h1>
+
+         <div class="instructions">
+            <p><strong>Purpose:</strong> Analyzes lift study data to calculate incremental lift, revenue impact, and channel/format breakdowns.</p>
+            <p class="recommendation"><strong>Recommended Data Format: Tab-Separated (TSV)</strong></p>
+            <ol>
+                <li><strong>Prepare in Spreadsheet:</strong> Organize data in 4 columns (order below).</li>
+                <li><strong>Clean Data:</strong> Ensure 'Converters' and 'Population' columns contain **ONLY NUMBERS** (no commas, $, spaces, text). Remove blank rows.</li>
+                <li><strong>Copy & Paste:</strong> Select cleaned data cells, copy (Ctrl+C), and paste (Ctrl+V) below.</li>
+            </ol>
+             <p><strong>Required Data Columns (in order):</strong></p>
+             <ol><li>Source Medium / Channel</li><li>Group Name</li><li>Converters (Number ONLY)</li><li>Population (Number ONLY)</li></ol>
+             <p><em>Pasting header row is okay (it will be ignored). Ensure Population column contains only valid numbers.</em></p>
+        </div>
+
+        <label for="dataInput">Paste Lift Study Data Here (TSV Recommended):</label>
+        <textarea id="dataInput" placeholder="Example (Tab-separated is best!):\nSource Medium / Channel    Group Name  Converters  Population\nDirect  External Platform Event Only    310 10371\nDirect   Any TTD Impression  25  892\nPaid Search    External Platform Event Only    150 5000\nPaid Search   Any TTD Impression  30  1200\nDirect    Display Impression  15  500\nDirect CTV Impression  5   200\nPaid Search    Video Impression    10  300\nPaid Search    Display Impression  12  450"></textarea>
+
+        <label for="aovInput">Average Order Value (AOV):</label>
+        <input type="number" id="aovInput" step="0.01" placeholder="e.g., 150.75">
+
+        <button id="calculateBtn">Calculate Lift & Insights</button>
+
+        <div id="errorMessage"></div>
+        <div id="resultsArea"><div id="insightsArea"><h3>Key Insights</h3></div>
+            <h2>Performance by Source Medium / Channel</h2><div class="table-wrapper"><div id="channelBreakdown"></div></div>
+            <h2>Overall Summary</h2><div class="table-wrapper"><div id="overallSummary"></div></div>
+            <h2>Programmatic Format Contribution (Assisted Conversions)</h2><div class="table-wrapper"><div id="progChannelContribution"></div></div>
+            <div id="notesSection"><h3>Notes & Caveats</h3></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Utility Formatting Functions ---
+        const formatInt = (value) => { const num = Number(value); return isNaN(num) ? 'N/A' : Math.round(num).toLocaleString(); };
+        const formatFloat = (value, decimals = 2) => { const num = Number(value); return isNaN(num) ? 'N/A' : num.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }); };
+        const formatCurrency = (value) => { const num = Number(value); return isNaN(num) ? 'N/A' : num.toLocaleString(undefined, { style: 'currency', currency: 'USD' }); };
+        const formatPercent = (value, decimals = 2) => { const num = Number(value); if (num === Infinity) return 'Infinity%'; return isNaN(num) ? 'N/A' : num.toFixed(decimals) + '%'; };
+
+        // --- Core Logic ---
+        function parsePastedData(rawData) {
+            const lines = rawData.trim().split('\n');
+            const parsedData = [];
+            const SOURCE_MEDIUM_PREFIX = "Source Medium: ";
+
+            lines.forEach((line) => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+                let parts = [];
+
+                parts = trimmedLine.split(/\t+/); // Try Tab
+                if (parts.length < 4) { parts = trimmedLine.split(','); // Try Comma
+                    if (parts.length < 4) { parts = trimmedLine.split(/\s{2,}/); } // Try Multi-Space
+                }
+
+                if (parts.length >= 4) {
+                    try {
+                        let sourceMediumRaw = parts[0].trim();
+                        if (sourceMediumRaw.startsWith(SOURCE_MEDIUM_PREFIX)) { sourceMediumRaw = sourceMediumRaw.substring(SOURCE_MEDIUM_PREFIX.length).trim(); }
+                        let groupNameRaw = parts.slice(1, parts.length - 2).join(' ').trim();
+                        let convertersStr = parts[parts.length - 2].trim();
+                        let populationStr = parts[parts.length - 1].trim();
+
+                        const cleanedConvertersStr = convertersStr.replace(/,/g, '');
+                        const cleanedPopulationStr = populationStr.replace(/,/g, '');
+
+                        let converters = parseFloat(cleanedConvertersStr);
+                        let population = parseFloat(cleanedPopulationStr);
+
+                        if (isNaN(converters) || converters < 0) { converters = 0; }
+                        if (isNaN(population) || population < 0) { population = 0; }
+
+                        parsedData.push({
+                            SourceMedium: sourceMediumRaw, Group: groupNameRaw,
+                            Converters: Math.round(converters), Population: Math.round(population)
+                        });
+                    } catch (e) {
+                         // Silently skip lines with general parsing errors in production, or keep minimal log:
+                         // console.warn(`Skipping line due to processing error: "${trimmedLine}"`);
+                    }
+                }
+                // Silently skip lines with insufficient columns in production
+            });
+            return parsedData;
+        }
+
+        function getGroupType(groupName) { if (!groupName || typeof groupName !== 'string') return 'unknown'; const norm = groupName.toLowerCase().replace(/\s+/g, ' ').trim(); if (norm.includes('external platform event only')) return 'baseline'; if (norm.includes('any ttd impression')) return 'assisted'; if (norm.includes('ctv impression')) return 'ctv'; if (norm.includes('display impression')) return 'display'; if (norm.includes('video impression')) return 'video'; return 'unknown'; }
+
+        function calculateProgrammaticLift(parsedData, aov) {
+             const resultsByChannel = {}; const progChannelResults = { 'CTV': { assistedConv: 0, population: 0, assistedRevenue: 0, cvr: 0 }, 'DISPLAY': { assistedConv: 0, population: 0, assistedRevenue: 0, cvr: 0 }, 'VIDEO': { assistedConv: 0, population: 0, assistedRevenue: 0, cvr: 0 } }; const channelCalcs = []; let totalBaseConv = 0; let totalBasePop = 0;
+
+             parsedData.forEach((row) => {
+                 const channel = row.SourceMedium; const groupType = getGroupType(row.Group); if (!resultsByChannel[channel]) { resultsByChannel[channel] = {}; }
+                 if (groupType === 'baseline' || groupType === 'assisted') { if (!resultsByChannel[channel][groupType]) { resultsByChannel[channel][groupType] = row; } }
+                 else if (groupType === 'ctv' || groupType === 'display' || groupType === 'video') { const formatKey = groupType.toUpperCase(); if (progChannelResults[formatKey]) { progChannelResults[formatKey].assistedConv += row.Converters; progChannelResults[formatKey].population += row.Population; } }
+             });
+
+             for (const channelName in resultsByChannel) { const channelData = resultsByChannel[channelName]; const baselineData = channelData.baseline; const assistedData = channelData.assisted; if (!baselineData) { continue; } const baseConv = baselineData.Converters; const basePop = baselineData.Population; let assistConv = 0; let assistPop = 0; if (assistedData) { assistConv = assistedData.Converters; assistPop = assistedData.Population; } totalBaseConv += baseConv; totalBasePop += basePop; const baseCvr = basePop > 0 ? baseConv / basePop : 0; const totalPop = basePop + assistPop; const actualTotalConv = baseConv + assistConv; const actualTotalRev = actualTotalConv * aov; const overallCvr = totalPop > 0 ? actualTotalConv / totalPop : 0; const estConvWithoutProg = totalPop * baseCvr; const estRevWithoutProg = estConvWithoutProg * aov; const incrConv = actualTotalConv - estConvWithoutProg; const incrRev = actualTotalRev - estRevWithoutProg; const percLift = estConvWithoutProg > 0 ? (incrConv / estConvWithoutProg) * 100 : (actualTotalConv > 0 ? Infinity : 0); channelCalcs.push({ Channel: channelName, BaseConv: baseConv, BasePop: basePop, BaseCVR: baseCvr * 100, AssistConv: assistConv, AssistPop: assistPop, TotalPop: totalPop, ActualTotalConv: actualTotalConv, ActualTotalRev: actualTotalRev, OverallCVR: overallCvr * 100, EstConvWithoutProg: estConvWithoutProg, EstRevWithoutProg: estRevWithoutProg, IncrConv: incrConv, IncrRev: incrRev, PercLift: percLift }); }
+             if (channelCalcs.length === 0) { console.error("No channels with valid baseline data processed."); return null; } // Keep essential error log
+
+             const overallBaselineCvr = totalBasePop > 0 ? totalBaseConv / totalBasePop : 0;
+             const overallSummary = channelCalcs.reduce((acc, c) => { acc.actualTotalConv += c.ActualTotalConv; acc.actualTotalRev += c.ActualTotalRev; acc.estConvWithoutProg += c.EstConvWithoutProg; acc.estRevWithoutProg += c.EstRevWithoutProg; acc.incrConv += c.IncrConv; acc.incrRev += c.IncrRev; acc.totalPopulation += c.TotalPop; return acc; }, { actualTotalConv: 0, actualTotalRev: 0, estConvWithoutProg: 0, estRevWithoutProg: 0, incrConv: 0, incrRev: 0, totalPopulation: 0 });
+             overallSummary.percLift = overallSummary.estConvWithoutProg > 0 ? (overallSummary.incrConv / overallSummary.estConvWithoutProg) * 100 : (overallSummary.actualTotalConv > 0 ? Infinity : 0); overallSummary.overallCvr = overallSummary.totalPopulation > 0 ? (overallSummary.actualTotalConv / overallSummary.totalPopulation) * 100 : 0;
+
+             for (const format in progChannelResults) { const data = progChannelResults[format]; data.assistedRevenue = data.assistedConv * aov; data.cvr = data.population > 0 ? (data.assistedConv / data.population) * 100 : 0; }
+
+             return { channelCalcs, overallSummary, progChannelResults, overallBaselineCvr: overallBaselineCvr * 100 };
+        }
+
+        function generateInsights(results, aov) { const insights = []; const { channelCalcs=[], overallSummary={}, progChannelResults={} } = results ?? {}; if (!results || !overallSummary) return ["Calculation incomplete."]; insights.push(`Overall incremental revenue: <strong>${formatCurrency(overallSummary.incrRev)}</strong>.`); insights.push(`Overall conversion lift %: <strong>${formatPercent(overallSummary.percLift)}</strong>.`); let topFmtC={n:'N/A',v:-1}, topFmtR={n:'N/A',v:-1}; for(const f of ['CTV','DISPLAY','VIDEO']){if(progChannelResults[f]){if(progChannelResults[f].assistedConv>topFmtC.v)topFmtC={n:f,v:progChannelResults[f].assistedConv}; if(progChannelResults[f].assistedRevenue>topFmtR.v)topFmtR={n:f,v:progChannelResults[f].assistedRevenue};}} if(topFmtC.n!=='N/A'&&topFmtC.v>=0)insights.push(`Top format by assisted conversions: <strong>${topFmtC.n}</strong> (${formatInt(topFmtC.v)}).`); if(topFmtR.n!=='N/A'&&topFmtR.v>=0)insights.push(`Top format by assisted revenue: <strong>${topFmtR.n}</strong> (${formatCurrency(topFmtR.v)}).`); let topChRev={n:'N/A',v:-Infinity}; channelCalcs.forEach(c=>{if(c.IncrRev>topChRev.v)topChRev={n:c.Channel,v:c.IncrRev}}); if(topChRev.n!=='N/A')insights.push(`Channel with highest incremental revenue: <strong>${topChRev.n}</strong> (${formatCurrency(topChRev.value)}).`); let topChLift={n:'N/A',v:-Infinity}; channelCalcs.forEach(c=>{if(c.PercLift>topChLift.v)topChLift={n:c.Channel,v:c.PercLift}}); if(topChLift.n!=='N/A')insights.push(`Channel with highest % lift: <strong>${topChLift.n}</strong> (${formatPercent(topChLift.value)}).`); let topChCVR={n:'N/A',v:-1}; channelCalcs.forEach(c=>{if(c.OverallCVR>topChCVR.v)topChCVR={n:c.Channel,v:c.OverallCVR}}); if(topChCVR.n!=='N/A')insights.push(`Channel with highest overall CVR: <strong>${topChCVR.n}</strong> (${formatPercent(topChCVR.v)}).`); let topFmtCVR={n:'N/A',v:-1}; for(const f of['CTV','DISPLAY','VIDEO']){if(progChannelResults[f]&&progChannelResults[f].cvr>topFmtCVR.v)topFmtCVR={n:f,v:progChannelResults[f].cvr}} if(topFmtCVR.n!=='N/A')insights.push(`Format with highest CVR: <strong>${topFmtCVR.n}</strong> (${formatPercent(topFmtCVR.v)}).`); if(topChCVR.n!=='N/A'){const base=channelCalcs.find(c=>c.Channel===topChCVR.n)?.BaseCVR;const baseTxt=base!==undefined?`(baseline CVR: ${formatPercent(base)})`:''; insights.push(`Channel <strong>${topChCVR.n}</strong> shows highest overall efficiency (${formatPercent(topChCVR.v)}%). Investigate factors driving this${baseTxt}.`);} return insights; }
+
+        function displayResults(results, aov, insights) {
+            const { channelCalcs = [], overallSummary = {}, progChannelResults = {}, overallBaselineCvr = 0 } = results ?? {};
+            const insightsArea = document.getElementById('insightsArea'); const channelBreakdownDiv = document.getElementById('channelBreakdown'); const overallSummaryDiv = document.getElementById('overallSummary'); const progChannelContributionDiv = document.getElementById('progChannelContribution'); const notesSectionDiv = document.getElementById('notesSection'); const resultsArea = document.getElementById('resultsArea'); const errorMessageDiv = document.getElementById('errorMessage');
+            insightsArea.innerHTML = '<h3>Key Insights</h3>'; channelBreakdownDiv.innerHTML = ''; overallSummaryDiv.innerHTML = ''; progChannelContributionDiv.innerHTML = ''; notesSectionDiv.innerHTML = '<h3>Notes & Caveats</h3>';
+            const insightsList = document.createElement('ul'); insights.forEach(iText => { const li = document.createElement('li'); li.innerHTML = iText; insightsList.appendChild(li); }); insightsArea.appendChild(insightsList);
+            let cTable = `<table><thead><tr><th>Source Medium / Channel</th><th class="numeric-column">Base Conv</th><th class="numeric-column">Base Pop</th><th class="numeric-column">Base CVR%</th><th class="numeric-column">Asst Conv</th><th class="numeric-column">Asst Pop</th><th class="numeric-column">Total Pop</th><th class="numeric-column">Actual Conv</th><th class="numeric-column">Actual Rev</th><th class="numeric-column">Overall CVR%</th><th class="numeric-column">Est Conv w/o</th><th class="numeric-column">Est Rev w/o</th><th class="numeric-column">Incr Conv</th><th class="numeric-column">Incr Rev</th><th class="numeric-column">Lift%</th></tr></thead><tbody>`; channelCalcs.forEach(c => { cTable += `<tr><td>${c.Channel}</td><td class="numeric-column">${formatInt(c.BaseConv)}</td><td class="numeric-column">${formatInt(c.BasePop)}</td><td class="numeric-column">${formatPercent(c.BaseCVR)}</td><td class="numeric-column">${formatInt(c.AssistConv)}</td><td class="numeric-column">${formatInt(c.AssistPop)}</td><td class="numeric-column">${formatInt(c.TotalPop)}</td><td class="numeric-column">${formatInt(c.ActualTotalConv)}</td><td class="numeric-column">${formatCurrency(c.ActualTotalRev)}</td><td class="numeric-column">${formatPercent(c.OverallCVR)}</td><td class="numeric-column">${formatFloat(c.EstConvWithoutProg)}</td><td class="numeric-column">${formatCurrency(c.EstRevWithoutProg)}</td><td class="numeric-column">${formatFloat(c.IncrConv)}</td><td class="numeric-column">${formatCurrency(c.IncrRev)}</td><td class="numeric-column">${formatPercent(c.PercLift)}</td></tr>`; }); cTable += `</tbody></table>`; channelBreakdownDiv.innerHTML = cTable;
+            let sTable = `<table><thead><tr><th>Metric</th><th class="numeric-column">Value</th></tr></thead><tbody><tr><td>Overall Baseline CVR</td><td class="numeric-column">${formatPercent(overallBaselineCvr)}</td></tr><tr><td>Total Population</td><td class="numeric-column">${formatInt(overallSummary.totalPopulation)}</td></tr><tr><td>Actual Total Conv</td><td class="numeric-column">${formatInt(overallSummary.actualTotalConv)}</td></tr><tr><td>Actual Total Rev</td><td class="numeric-column">${formatCurrency(overallSummary.actualTotalRev)}</td></tr><tr><td>Overall CVR</td><td class="numeric-column">${formatPercent(overallSummary.overallCvr)}</td></tr><tr><td>Est Conv w/o Prog</td><td class="numeric-column">${formatFloat(overallSummary.estConvWithoutProg)}</td></tr><tr><td>Est Rev w/o Prog</td><td class="numeric-column">${formatCurrency(overallSummary.estRevWithoutProg)}</td></tr><tr><td>Incr Conv</td><td class="numeric-column">${formatFloat(overallSummary.incrConv)}</td></tr><tr><td>Incr Rev</td><td class="numeric-column">${formatCurrency(overallSummary.incrRev)}</td></tr><tr><td>Overall Lift %</td><td class="numeric-column">${formatPercent(overallSummary.percLift)}</td></tr><tr><td>AOV Used</td><td class="numeric-column">${formatCurrency(aov)}</td></tr></tbody></table>`; overallSummaryDiv.innerHTML = sTable;
+            let fTable = `<table><thead><tr><th>Programmatic Format</th><th class="numeric-column">Assisted Conv</th><th class="numeric-column">Assisted Rev</th><th class="numeric-column">Population Exposed</th><th class="numeric-column">Format CVR %</th></tr></thead><tbody>`; for (const f of ['CTV', 'DISPLAY', 'VIDEO']) { if (progChannelResults && progChannelResults[f]) { const d = progChannelResults[f]; const ac=d.assistedConv??0; const ar=d.assistedRevenue??0; const p=d.population??0; const cvr=d.cvr??0; fTable += `<tr><td>${f}</td><td class="numeric-column">${formatInt(ac)}</td><td class="numeric-column">${formatCurrency(ar)}</td><td class="numeric-column">${formatInt(p)}</td><td class="numeric-column">${formatPercent(cvr)}</td></tr>`; } else { fTable += `<tr><td>${f}</td><td class="numeric-column" colspan="4">Data N/A</td></tr>`; } } fTable += `</tbody></table>`; progChannelContributionDiv.innerHTML = fTable;
+            const notesList = document.createElement('ul'); const notes = [`<strong>Base CVR:</strong> Conv/Pop for 'External Platform Event Only'.`, `<strong>Overall Channel CVR:</strong> (Base Conv+Asst Conv)/(Base Pop+Asst Pop).`, `<strong>Est Conv w/o Prog:</strong> TotalPop*BaseCVR.`, `<strong>Incr Conv:</strong> ActualConv-EstConv w/o.`, `<strong>Lift%:</strong> (IncrConv/EstConv w/o)*100.`, `<strong>Format CVR%:</strong> AsstConv for format/Pop exposed to format.`, `<strong>Methodology:</strong> Assumes 'Ext Plat Event Only' is baseline, 'Any TTD Imp' is overall prog effect. Format contrib uses data from rows matching format name.`, `<strong>Correlation vs Causation:</strong> Correlation shown, not causation.`, `<strong>Data Dependency:</strong> Accuracy relies on data quality/format (TSV recommended). Zeros/N/A likely indicate missing/invalid source data.`, `<strong>AOV:</strong> Revenue uses single AOV (${formatCurrency(aov)}).`, `Analysis generated on: ${new Date().toLocaleString()}`]; notes.forEach(nTxt => { const li = document.createElement('li'); li.innerHTML = nTxt; notesList.appendChild(li); }); notesSectionDiv.appendChild(notesList);
+            resultsArea.style.display = 'block'; errorMessageDiv.style.display = 'none';
+        }
+
+        // --- Event Listener (Normal Mode) ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const calculateBtn = document.getElementById('calculateBtn'); const dataInput = document.getElementById('dataInput'); const aovInput = document.getElementById('aovInput'); const errorMessageDiv = document.getElementById('errorMessage'); const resultsArea = document.getElementById('resultsArea');
+            calculateBtn.addEventListener('click', () => {
+                 errorMessageDiv.textContent = ''; errorMessageDiv.style.display = 'none'; resultsArea.style.display = 'none'; // Clear state
+                 const rawData = dataInput.value; const aov = parseFloat(aovInput.value); let errors = []; if (rawData.trim() === '') errors.push('Lift study data cannot be empty.'); if (isNaN(aov) || aov <= 0) errors.push('AOV must be positive.');
+                 if (errors.length > 0) { errorMessageDiv.innerHTML = errors.join('<br>'); errorMessageDiv.style.display = 'block'; return; }
+                 try {
+                     const parsedData = parsePastedData(rawData); if (parsedData.length === 0) { throw new Error("No valid data rows parsed. Check format (TSV recommended)."); }
+                     const results = calculateProgrammaticLift(parsedData, aov); if (!results) { throw new Error("Calculation failed. Ensure valid 'baseline' groups exist."); }
+                     const insights = generateInsights(results, aov); displayResults(results, aov, insights);
+                 } catch (error) { console.error("Calculation Error:", error); errorMessageDiv.textContent = `An error occurred: ${error.message}. Check console for warnings if applicable.`; errorMessageDiv.style.display = 'block'; } // Keep minimal console mention
+            });
+        });
+    </script>
+</body>
+</html>
