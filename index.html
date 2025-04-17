@@ -112,11 +112,11 @@
                             Converters: Math.round(converters), Population: Math.round(population)
                         });
                     } catch (e) {
-                         // Silently skip lines with general parsing errors in production, or keep minimal log:
-                         // console.warn(`Skipping line due to processing error: "${trimmedLine}"`);
+                         console.warn(`Skipping line due to processing error: "${trimmedLine}"`, e);
                     }
+                } else {
+                     // console.warn(`Skipping line due to insufficient columns: "${trimmedLine}"`);
                 }
-                // Silently skip lines with insufficient columns in production
             });
             return parsedData;
         }
@@ -133,7 +133,7 @@
              });
 
              for (const channelName in resultsByChannel) { const channelData = resultsByChannel[channelName]; const baselineData = channelData.baseline; const assistedData = channelData.assisted; if (!baselineData) { continue; } const baseConv = baselineData.Converters; const basePop = baselineData.Population; let assistConv = 0; let assistPop = 0; if (assistedData) { assistConv = assistedData.Converters; assistPop = assistedData.Population; } totalBaseConv += baseConv; totalBasePop += basePop; const baseCvr = basePop > 0 ? baseConv / basePop : 0; const totalPop = basePop + assistPop; const actualTotalConv = baseConv + assistConv; const actualTotalRev = actualTotalConv * aov; const overallCvr = totalPop > 0 ? actualTotalConv / totalPop : 0; const estConvWithoutProg = totalPop * baseCvr; const estRevWithoutProg = estConvWithoutProg * aov; const incrConv = actualTotalConv - estConvWithoutProg; const incrRev = actualTotalRev - estRevWithoutProg; const percLift = estConvWithoutProg > 0 ? (incrConv / estConvWithoutProg) * 100 : (actualTotalConv > 0 ? Infinity : 0); channelCalcs.push({ Channel: channelName, BaseConv: baseConv, BasePop: basePop, BaseCVR: baseCvr * 100, AssistConv: assistConv, AssistPop: assistPop, TotalPop: totalPop, ActualTotalConv: actualTotalConv, ActualTotalRev: actualTotalRev, OverallCVR: overallCvr * 100, EstConvWithoutProg: estConvWithoutProg, EstRevWithoutProg: estRevWithoutProg, IncrConv: incrConv, IncrRev: incrRev, PercLift: percLift }); }
-             if (channelCalcs.length === 0) { console.error("No channels with valid baseline data processed."); return null; } // Keep essential error log
+             if (channelCalcs.length === 0) { console.error("No channels with valid baseline data processed."); return null; }
 
              const overallBaselineCvr = totalBasePop > 0 ? totalBaseConv / totalBasePop : 0;
              const overallSummary = channelCalcs.reduce((acc, c) => { acc.actualTotalConv += c.ActualTotalConv; acc.actualTotalRev += c.ActualTotalRev; acc.estConvWithoutProg += c.EstConvWithoutProg; acc.estRevWithoutProg += c.EstRevWithoutProg; acc.incrConv += c.IncrConv; acc.incrRev += c.IncrRev; acc.totalPopulation += c.TotalPop; return acc; }, { actualTotalConv: 0, actualTotalRev: 0, estConvWithoutProg: 0, estRevWithoutProg: 0, incrConv: 0, incrRev: 0, totalPopulation: 0 });
@@ -144,7 +144,132 @@
              return { channelCalcs, overallSummary, progChannelResults, overallBaselineCvr: overallBaselineCvr * 100 };
         }
 
-        function generateInsights(results, aov) { const insights = []; const { channelCalcs=[], overallSummary={}, progChannelResults={} } = results ?? {}; if (!results || !overallSummary) return ["Calculation incomplete."]; insights.push(`Overall incremental revenue: <strong>${formatCurrency(overallSummary.incrRev)}</strong>.`); insights.push(`Overall conversion lift %: <strong>${formatPercent(overallSummary.percLift)}</strong>.`); let topFmtC={n:'N/A',v:-1}, topFmtR={n:'N/A',v:-1}; for(const f of ['CTV','DISPLAY','VIDEO']){if(progChannelResults[f]){if(progChannelResults[f].assistedConv>topFmtC.v)topFmtC={n:f,v:progChannelResults[f].assistedConv}; if(progChannelResults[f].assistedRevenue>topFmtR.v)topFmtR={n:f,v:progChannelResults[f].assistedRevenue};}} if(topFmtC.n!=='N/A'&&topFmtC.v>=0)insights.push(`Top format by assisted conversions: <strong>${topFmtC.n}</strong> (${formatInt(topFmtC.v)}).`); if(topFmtR.n!=='N/A'&&topFmtR.v>=0)insights.push(`Top format by assisted revenue: <strong>${topFmtR.n}</strong> (${formatCurrency(topFmtR.v)}).`); let topChRev={n:'N/A',v:-Infinity}; channelCalcs.forEach(c=>{if(c.IncrRev>topChRev.v)topChRev={n:c.Channel,v:c.IncrRev}}); if(topChRev.n!=='N/A')insights.push(`Channel with highest incremental revenue: <strong>${topChRev.n}</strong> (${formatCurrency(topChRev.value)}).`); let topChLift={n:'N/A',v:-Infinity}; channelCalcs.forEach(c=>{if(c.PercLift>topChLift.v)topChLift={n:c.Channel,v:c.PercLift}}); if(topChLift.n!=='N/A')insights.push(`Channel with highest % lift: <strong>${topChLift.n}</strong> (${formatPercent(topChLift.value)}).`); let topChCVR={n:'N/A',v:-1}; channelCalcs.forEach(c=>{if(c.OverallCVR>topChCVR.v)topChCVR={n:c.Channel,v:c.OverallCVR}}); if(topChCVR.n!=='N/A')insights.push(`Channel with highest overall CVR: <strong>${topChCVR.n}</strong> (${formatPercent(topChCVR.v)}).`); let topFmtCVR={n:'N/A',v:-1}; for(const f of['CTV','DISPLAY','VIDEO']){if(progChannelResults[f]&&progChannelResults[f].cvr>topFmtCVR.v)topFmtCVR={n:f,v:progChannelResults[f].cvr}} if(topFmtCVR.n!=='N/A')insights.push(`Format with highest CVR: <strong>${topFmtCVR.n}</strong> (${formatPercent(topFmtCVR.v)}).`); if(topChCVR.n!=='N/A'){const base=channelCalcs.find(c=>c.Channel===topChCVR.n)?.BaseCVR;const baseTxt=base!==undefined?`(baseline CVR: ${formatPercent(base)})`:''; insights.push(`Channel <strong>${topChCVR.n}</strong> shows highest overall efficiency (${formatPercent(topChCVR.v)}%). Investigate factors driving this${baseTxt}.`);} return insights; }
+        /**
+         * Generates human-readable insights based on calculated results.
+         * Includes direct check for Email and more robust comparisons.
+         * @param {object} results - The results object from calculateProgrammaticLift.
+         * @param {number} aov - Average Order Value.
+         * @returns {Array<string>} An array of insight strings.
+         */
+        function generateInsights(results, aov) {
+            const insights = [];
+            // Use safe destructuring with defaults for robustness
+            const { channelCalcs = [], overallSummary = {}, progChannelResults = {} } = results ?? {};
+
+            // Check for essential data presence early
+            if (!results || !overallSummary || channelCalcs.length === 0) {
+                 // No console log needed here, return message is sufficient
+                 return ["Calculation incomplete or insufficient channel data found to generate insights."];
+            }
+
+            // *** Add a Direct Test Insight for Email (Optional Debugging) ***
+            // You can uncomment this block locally if you need to debug a specific channel again
+            /*
+            const emailChannelData = channelCalcs.find(c => c.Channel === 'Email'); // Find Email data
+            if (emailChannelData) {
+                const debugIncrRev = formatCurrency(emailChannelData.IncrRev);
+                const debugPercLift = formatPercent(emailChannelData.PercLift);
+                const debugOverallCVR = formatPercent(emailChannelData.OverallCVR);
+                insights.push(`[DEBUG] Email Check: IncrRev = ${debugIncrRev}, Lift = ${debugPercLift}, OverallCVR = ${debugOverallCVR}`);
+            } else {
+                insights.push("[DEBUG] Email channel data not found in channelCalcs array.");
+            }
+            */
+            // *** End of Direct Test Insight ***
+
+            // 1. Overall Incremental Revenue and Lift (Use overallSummary)
+            insights.push(`Overall incremental revenue driven by programmatic advertising: <strong>${formatCurrency(overallSummary.incrRev)}</strong>.`);
+            insights.push(`Overall conversion lift percentage: <strong>${formatPercent(overallSummary.percLift)}</strong> (Incremental Conversions / Estimated Conversions without Programmatic).`);
+
+            // 2. Top Programmatic Format (Use progChannelResults)
+            let topFormatConv = { name: 'N/A', value: -1 };
+            let topFormatRev = { name: 'N/A', value: -1 };
+            for (const format of ['CTV', 'DISPLAY', 'VIDEO']) {
+                if (progChannelResults && progChannelResults[format]) {
+                    if (typeof progChannelResults[format].assistedConv === 'number' && !isNaN(progChannelResults[format].assistedConv) && progChannelResults[format].assistedConv > topFormatConv.value) {
+                        topFormatConv = { name: format, value: progChannelResults[format].assistedConv };
+                    }
+                    if (typeof progChannelResults[format].assistedRevenue === 'number' && !isNaN(progChannelResults[format].assistedRevenue) && progChannelResults[format].assistedRevenue > topFormatRev.value) {
+                        topFormatRev = { name: format, value: progChannelResults[format].assistedRevenue };
+                    }
+                }
+            }
+            if (topFormatConv.name !== 'N/A' && topFormatConv.value >= 0) insights.push(`Top programmatic format by assisted conversions: <strong>${topFormatConv.name}</strong> (${formatInt(topFormatConv.value)} conversions).`);
+            if (topFormatRev.name !== 'N/A' && topFormatRev.value >= 0) insights.push(`Top programmatic format by associated assisted revenue: <strong>${topFormatRev.name}</strong> (${formatCurrency(topFormatRev.value)}).`);
+
+            // 3. Top Channel by Absolute Incremental Revenue
+             let topChannelIncrRev = { name: 'N/A', value: -Infinity };
+             channelCalcs.forEach(c => {
+                 if (typeof c.IncrRev === 'number' && isFinite(c.IncrRev) && c.IncrRev > topChannelIncrRev.value) {
+                     topChannelIncrRev = { name: c.Channel, value: c.IncrRev };
+                 }
+             });
+             if (topChannelIncrRev.name !== 'N/A' && isFinite(topChannelIncrRev.value)) {
+                insights.push(`Channel with the highest absolute incremental revenue: <strong>${topChannelIncrRev.name}</strong> (${formatCurrency(topChannelIncrRev.value)}).`);
+             } else {
+                insights.push(`Channel with the highest absolute incremental revenue: N/A (Calculation issue or no channels with valid finite revenue).`);
+             }
+
+            // 4. Top Channel by Percentage Lift
+            let topChannelPercLift = { name: 'N/A', value: -Infinity };
+            channelCalcs.forEach(c => {
+                 const liftValue = c.PercLift;
+                 if (typeof liftValue === 'number' && !isNaN(liftValue)) {
+                     if (liftValue === Infinity && topChannelPercLift.value !== Infinity) {
+                         topChannelPercLift = { name: c.Channel, value: liftValue };
+                     } else if (isFinite(liftValue) && liftValue > topChannelPercLift.value) {
+                         topChannelPercLift = { name: c.Channel, value: liftValue };
+                     }
+                 }
+            });
+             if (topChannelPercLift.name !== 'N/A') {
+                insights.push(`Channel with the highest percentage lift: <strong>${topChannelPercLift.name}</strong> (${formatPercent(topChannelPercLift.value)}).`);
+             } else {
+                 insights.push(`Channel with the highest percentage lift: N/A (Calculation issue or no channels with valid lift).`);
+             }
+
+             // 5. Top Channel by Overall CVR
+             let topChannelOverallCvr = { name: 'N/A', value: -1 };
+             channelCalcs.forEach(c => {
+                 if (typeof c.OverallCVR === 'number' && isFinite(c.OverallCVR) && c.OverallCVR >= 0 && c.OverallCVR > topChannelOverallCvr.value) {
+                     topChannelOverallCvr = { name: c.Channel, value: c.OverallCVR };
+                 }
+             });
+             if (topChannelOverallCvr.name !== 'N/A' && topChannelOverallCvr.value >= 0) {
+                 insights.push(`Channel with the highest overall CVR (incl. assisted): <strong>${topChannelOverallCvr.name}</strong> (${formatPercent(topChannelOverallCvr.value)}).`);
+             } else {
+                 insights.push(`Channel with the highest overall CVR (incl. assisted): N/A (Calculation issue or no channels with valid CVR).`);
+             }
+
+             // 6. Top Programmatic Format by Format CVR
+             let topFormatCvr = { name: 'N/A', value: -1 };
+             for (const format of ['CTV', 'DISPLAY', 'VIDEO']) {
+                 if (progChannelResults && progChannelResults[format]) {
+                     const cvrValue = progChannelResults[format].cvr;
+                     if (typeof cvrValue === 'number' && isFinite(cvrValue) && cvrValue >= 0 && cvrValue > topFormatCvr.value) {
+                         topFormatCvr = { name: format, value: cvrValue };
+                     }
+                 }
+             }
+             if (topFormatCvr.name !== 'N/A' && topFormatCvr.value >= 0) {
+                 insights.push(`Programmatic format with the highest CVR (assisted conversions / population exposed to format): <strong>${topFormatCvr.name}</strong> (${formatPercent(topFormatCvr.value)}).`);
+             } else {
+                insights.push(`Programmatic format with the highest CVR: N/A (Calculation issue or no formats with valid CVR).`);
+             }
+
+              // 7. Interpretation Insight
+              if (topChannelOverallCvr.name !== 'N/A' && topChannelOverallCvr.value >= 0) {
+                    const topChannelData = channelCalcs.find(c => c.Channel === topChannelOverallCvr.name);
+                    const topChannelBaseCVR = topChannelData?.BaseCVR;
+                    const baseCVRText = (typeof topChannelBaseCVR === 'number' && isFinite(topChannelBaseCVR))
+                        ? ` (baseline CVR: ${formatPercent(topChannelBaseCVR)})`
+                        : '';
+                    insights.push(`Channel <strong>${topChannelOverallCvr.name}</strong> shows the highest overall conversion efficiency (${formatPercent(topChannelOverallCvr.value)}%). Consider investigating factors driving this performance, keeping in mind its specific audience profile${baseCVRText} and differences compared to other channels.`);
+              }
+
+            return insights;
+        }
+
 
         function displayResults(results, aov, insights) {
             const { channelCalcs = [], overallSummary = {}, progChannelResults = {}, overallBaselineCvr = 0 } = results ?? {};
@@ -169,7 +294,7 @@
                      const parsedData = parsePastedData(rawData); if (parsedData.length === 0) { throw new Error("No valid data rows parsed. Check format (TSV recommended)."); }
                      const results = calculateProgrammaticLift(parsedData, aov); if (!results) { throw new Error("Calculation failed. Ensure valid 'baseline' groups exist."); }
                      const insights = generateInsights(results, aov); displayResults(results, aov, insights);
-                 } catch (error) { console.error("Calculation Error:", error); errorMessageDiv.textContent = `An error occurred: ${error.message}. Check console for warnings if applicable.`; errorMessageDiv.style.display = 'block'; } // Keep minimal console mention
+                 } catch (error) { console.error("Calculation Error:", error); errorMessageDiv.textContent = `An error occurred: ${error.message}`; errorMessageDiv.style.display = 'block'; } // Simplified error message
             });
         });
     </script>
